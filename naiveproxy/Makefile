@@ -1,103 +1,97 @@
+# SPDX-License-Identifier: GPL-3.0-only
 #
-# Copyright (C) 2020 Project OpenWrt
-#
-# This is free software, licensed under the GNU General Public License v3.
-# See /LICENSE for more information.
-#
+# Copyright (C) 2021 ImmortalWrt.org
+
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=naiveproxy
-PKG_VERSION:=87.0.4280.66-1
+PKG_VERSION:=97.0.4692.71-1
 PKG_RELEASE:=1
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/klzgrad/naiveproxy/tar.gz/v$(PKG_VERSION)?
-PKG_HASH:=17e79172fa32cb3b619614af989569aec7e866046f17e4a1b2179940f1915290
-PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)-$(PKG_VERSION)
+PKG_HASH:=10535dac472243ac55d709a185434c72cde976143809c9bac213b6a4a5f521a1
 
 PKG_LICENSE:=BSD 3-Clause
 PKG_LICENSE_FILES:=LICENSE
-PKG_MAINTAINER:=CN_SZTL <cnsztl@project-openwrt.eu.org>
+PKG_MAINTAINER:=Tianling Shen <cnsztl@immortalwrt.org>
 
-PKG_BUILD_DEPENDS:=ncurses/host ninja/host python3/host
+PKG_BUILD_DEPENDS:=python3/host
+ifneq ($(wildcard $(TOPDIR)/feeds/packages/devel/ninja/ninja.mk),)
+PKG_BUILD_DEPENDS+= ninja/host
+endif
 PKG_USE_MIPS16:=0
 PKG_BUILD_PARALLEL:=1
 
+ifeq ($(NINJA),)
+NINJA = \
+	MAKEFLAGS="$(MAKE_JOBSERVER)" \
+		$(STAGING_DIR_HOSTPKG)/bin/ninja \
+		$(if $(findstring c,$(OPENWRT_VERBOSE)),-v) \
+		$(if $(MAKE_JOBSERVER),,-j1)
+endif
+
 ifneq ($(CONFIG_CPU_TYPE)," ")
-	CPU_TYPE:=$(word 1, $(subst +," ,$(CONFIG_CPU_TYPE)))
-	CPU_SUBTYPE:=$(word 2, $(subst +, ",$(CONFIG_CPU_TYPE)))
-	ifeq ($(CPU_SUBTYPE),)
-		CPU_SUBTYPE:=""
-	endif
+  CPU_TYPE:=$(word 1, $(subst +," ,$(CONFIG_CPU_TYPE)))
+  CPU_SUBTYPE:=$(word 2, $(subst +, ",$(CONFIG_CPU_TYPE)))
+  ifeq ($(CPU_SUBTYPE),)
+    CPU_SUBTYPE:=""
+  endif
 else
-	CPU_TYPE:=""
-	CPU_SUBTYPE:=""
+  CPU_TYPE:=""
+  CPU_SUBTYPE:=""
 endif
 
 include $(INCLUDE_DIR)/package.mk
 
-define Package/naiveproxy/config
-	depends on !(arc||armeb||mips||mips64||powerpc)
-endef
-
 define Package/naiveproxy
-	SECTION:=net
-	CATEGORY:=Network
-	SUBMENU:=Web Servers/Proxies
-	URL:=https://github.com/klzgrad/naiveproxy
-	TITLE:=Make a fortune quietly
-	DEPENDS:=+libatomic +libnss
+  SECTION:=net
+  CATEGORY:=Network
+  SUBMENU:=Web Servers/Proxies
+  URL:=https://github.com/klzgrad/naiveproxy
+  TITLE:=Make a fortune quietly
+  DEPENDS:=@!(arc||armeb||mips||mips64||powerpc||TARGET_gemini) +libatomic
 endef
 
 define Package/naiveproxy/description
-	NaïveProxy uses Chrome's network stack to camouflage traffic with strong
-	censorship resistance and low detectability. Reusing Chrome's stack also
-	ensures best practices in performance and security.
+  NaïveProxy uses Chrome's network stack to camouflage traffic with strong
+  censorship resistance and low detectability. Reusing Chrome's stack also
+  ensures best practices in performance and security.
 endef
 
 ifneq ($(CONFIG_CCACHE),)
-	export CCACHE_SLOPPINESS=time_macros
-	export CCACHE_BASEDIR=$(PKG_BUILD_DIR)/src
-	export CCACHE_CPP2=yes
-	export naive_ccache_flags=cc_wrapper="ccache"
+  export CCACHE_SLOPPINESS=time_macros
+  export CCACHE_BASEDIR=$(PKG_BUILD_DIR)/src
+  export CCACHE_CPP2=yes
+  export naive_ccache_flags=cc_wrapper="$(CCACHE)"
 endif
 
-AFDO_VER:=87.0.4278.0_rc-r1-merged
-AFDO_FILE:=chromeos-chrome-amd64-$$(AFDO_VER).afdo.bz2
-define Download/AFDO_PROF
-	URL:=https://storage.googleapis.com.cnpmjs.org/chromeos-prebuilt/afdo-job/llvm \
-	     https://storage.googleapis.com/chromeos-prebuilt/afdo-job/llvm
-	URL_FILE:=$(AFDO_FILE)
-	FILE:=$(AFDO_FILE)
-	HASH:=7625590b588195918b30c63db20e06339132bbe8975f39e2e429b929682ee3ff
-endef
-
-CLANG_VER:=llvmorg-12-init-5035-gd0abc757-3
-CLANG_FILE:=clang-$$(CLANG_VER).tgz
+CLANG_VER:=14-init-8033-gabb2a91b-2
+CLANG_FILE:=clang-llvmorg-$(CLANG_VER).tgz
 define Download/CLANG
 	URL:=https://commondatastorage.googleapis.com/chromium-browser-clang/Linux_x64
 	URL_FILE:=$(CLANG_FILE)
 	FILE:=$(CLANG_FILE)
-	HASH:=b0c3015209b6d624844ad230064eb5c9b4429a2eafd4854981e73217c563d93d
+	HASH:=720e10810f0005a4a8640728e72f06c283d4c51362f2889b513c6d6c3a136582
 endef
 
-GN_VER:=e002e68a48d1c82648eadde2f6aafa20d08c36f2
+GN_VER:=90294ccdcf9334ed25a76ac9b67689468e506342
 GN_FILE:=gn-git_revision-$(GN_VER).zip
 define Download/GN_TOOL
 	URL:=https://chrome-infra-packages.appspot.com/dl/gn/gn/linux-amd64/+
 	URL_FILE:=git_revision:$(GN_VER)
 	FILE:=$(GN_FILE)
-	HASH:=67a733dc12803f61a0565ba3a390fa08576b2c4dc1d615c5c15c2b681e900675
+	HASH:=9cbfd56953d415a88dfae616191c0c37612a41f7fb09830d2952b8b5a59c7dec
 endef
 
-PGO_VER:=4280-1605284980-f890b7d0344c87909c28619fe56e1dd48953d29e
+PGO_VER:=4692-1640701189-f21838a98aa9a4bd13520a4261d2d77cbab9c3f3
 PGO_FILE:=chrome-linux-$(PGO_VER).profdata
 define Download/PGO_PROF
 	URL:=https://storage.googleapis.com.cnpmjs.org/chromium-optimization-profiles/pgo_profiles \
 	     https://storage.googleapis.com/chromium-optimization-profiles/pgo_profiles
 	URL_FILE:=$(PGO_FILE)
 	FILE:=$(PGO_FILE)
-	HASH:=8d87e67b84b2694776c931d8eabf0760144420718fe6a5352951fae38a3a25f6
+	HASH:=8830cc810cdd1c4812a3cd009206bbf52f7c33a67b3280f62dd60cb684300e0f
 endef
 
 define Build/Prepare
@@ -105,7 +99,6 @@ define Build/Prepare
 
 	( \
 		cd $(PKG_BUILD_DIR)/src ; \
-		bzip2 -cd > "chrome/android/profiles/afdo.prof" < "$(DL_DIR)/$(AFDO_FILE)" ; \
 		mkdir -p "chrome/build/pgo_profiles" ; \
 		$(CP) "$(DL_DIR)/$(PGO_FILE)" "chrome/build/pgo_profiles" ; \
 		mkdir -p "third_party/llvm-build/Release+Asserts" ; \
@@ -116,16 +109,14 @@ define Build/Prepare
 endef
 
 define Build/Compile
-( \
-	cd "$(PKG_BUILD_DIR)/src" ; \
-	. ../init_env.sh "$(ARCH)" "$(BOARD)" $(CPU_TYPE) $(CPU_SUBTYPE) "$(TOOLCHAIN_DIR)" ; \
-	export naive_flags="$$$${naive_flags} pgo_data_path=\"$(PKG_BUILD_DIR)/src/chrome/build/pgo_profiles/$(PGO_FILE)\"" ; \
-	export naive_flags="$$$${naive_flags} $$$${naive_ccache_flags}" ; \
-	export OP_STAGING_DIR="$(STAGING_DIR)" ; \
-	mkdir -p "out" ; \
-	./gn/out/gn gen "out/Release" --args="$$$${naive_flags}" --script-executable="$(STAGING_DIR_HOSTPKG)/bin/python3" ; \
-	$(STAGING_DIR_HOSTPKG)/bin/ninja -C "out/Release" naive ; \
-)
+	( \
+		cd "$(PKG_BUILD_DIR)/src" ; \
+		. ../init_env.sh "$(ARCH)" $(CPU_TYPE) $(CPU_SUBTYPE) "$(TOOLCHAIN_DIR)" ; \
+		export naive_flags+=" $$$${naive_ccache_flags}" ; \
+		mkdir -p "out" ; \
+		./gn/out/gn gen "out/Release" --args="$$$${naive_flags}" --script-executable="$(PYTHON)" ; \
+		$(NINJA) -C "$(PKG_BUILD_DIR)/src/out/Release" naive ; \
+	)
 endef
 
 define Package/naiveproxy/install
@@ -133,7 +124,6 @@ define Package/naiveproxy/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/out/Release/naive $(1)/usr/bin/naive
 endef
 
-$(eval $(call Download,AFDO_PROF))
 $(eval $(call Download,CLANG))
 $(eval $(call Download,GN_TOOL))
 $(eval $(call Download,PGO_PROF))
