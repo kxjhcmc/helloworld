@@ -1,0 +1,43 @@
+name: Sync Helloworld
+
+on:
+  workflow_dispatch:
+  schedule:
+     - cron: '0 3 * * *'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout current repo
+      uses: actions/checkout@v4
+
+    - name: Set up Git
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+    - name: Save sync config
+      run: cp .github/workflows/sync.yml /tmp/sync.yml
+
+    - name: Add upstream repo
+      run: git remote add upstream https://github.com/fw876/helloworld.git
+
+    - name: Fetch upstream
+      run: git fetch upstream master
+
+    - name: Rebase onto upstream/master
+      run: |
+        git rebase upstream/master || (
+          echo "Rebase failed. Aborting..."
+          git rebase --abort
+          exit 1
+        )
+
+    - name: Restore sync.yml
+      run: cp /tmp/sync.yml .github/workflows/sync.yml
+
+    - name: Push changes
+      run: |
+        git push origin HEAD:master --force
